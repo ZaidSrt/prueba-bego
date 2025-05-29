@@ -1,17 +1,15 @@
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { getOrders } from "@/services/orders";
 
-import Image from "next/image";
 import Main from "./layouts/main";
 
-import Search from "@/assets/img/Search.png";
-import FCL from "@/assets/img/FCL.png";
-import Pickup from "@/assets/img/Pickup.png";
-import Location from "@/assets/img/Location.png";
-import Breadcrumb from "@/assets/img/Breadcrumb.png";
-import Eye from "@/assets/img/Eye.png";
-
 import Header from "@/components/header";
+import CardHome from "@/components/order/cardOrder";
+import NavHome from "@/components/order/navHome";
+import SearchHome from "@/components/order/searchHome";
+import Load from "@/components/load";
+import Empty from "@/components/empty";
 
 
 export default function Home() {
@@ -19,99 +17,65 @@ export default function Home() {
   const navMenu = ["Upcoming", "Completed", "Past"];
 
   const [navActive, setNavActive] = useState<string>("Upcoming");
+  const [orders, setOrders] = useState<OrdersData>({});
+  const [ordersFilter, setOrdersFilter] = useState<Orders[]>([]);
+  const [searchValue, setSearchValue] = useState<string>("");
+  const [isLoad, setIsLoad] = useState<boolean>(true);
+
+  useEffect(() => {
+    getAllOrders();
+  }, []);
+
+  useEffect(() => {
+    filterOrderData();
+  }, [orders, searchValue, navActive]);
+
+  function filterOrderData() {
+    if (JSON.stringify(orders) == "{}") return;
+
+    let orderData: Orders[] = orders[navActive];
+    if (searchValue != "") orderData = orderData.filter(order => order.order_number.toLowerCase().includes(searchValue!.toLowerCase()));
+
+    setOrdersFilter(orderData);
+  }
+
+  async function getAllOrders() {
+
+    let [orders, ordersPast] = await Promise.all([getOrders("upcoming"), getOrders('past')]);
+    if (orders.status != 200 || ordersPast.status != 200) {
+      setIsLoad(false);
+      return
+    };
+
+    setOrders({
+      "Upcoming": orders.result.filter((item: Orders) => item.status == 1),
+      "Completed": orders.result.filter((item: Orders) => item.status == 3),
+      "Past": ordersPast.result
+    });
+
+    setIsLoad(false);
+  }
+
 
   return (
     <Main>
-
       <Header title="Cargo Orders" />
 
-      <nav className="flex items-start justify-between mt-10">
-        {navMenu.map((item: string, index: number) => (
-          <div className="w-[100px]" key={`nav-${index}`}>
-            <span className={`${navActive == item ? 'text-bego' : 'text-white'} text-lg cursor-pointer`} onClick={() => setNavActive(item)}>{item}</span>
-            {navActive == item && <span className="block mt-1 border border-bego w-1/3"></span>}
+      <NavHome navActive={navActive} navMenu={navMenu} setNavActive={setNavActive} />
+      <SearchHome searchValue={searchValue} setSearchValue={setSearchValue} />
+
+      {isLoad ?
+        <div className="w-full h-50 flex items-center justify-center">
+          <Load />
+        </div> :
+        ordersFilter.length === 0 ?
+          <div className="w-full h-50 flex items-center justify-center">
+            <Empty />
+          </div> :
+          <div className="mt-10 grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-8">
+            {ordersFilter.map((item: Orders, index: number) => <CardHome key={`card-${index}`} item={item} />)}
           </div>
-        ))}
-      </nav>
-
-      <div className="mt-10 flex items-center border border-b-gray-500/50 justify-between gap-4">
-        <Image src={Search} alt="Search" />
-        <input type="text" className="w-full outline-none text-white text-lg py-2" />
-      </div>
-
-      <div className="mt-10">
-        <div className="flex flex-col gap-4">
-          <div className="flex items-center gap-2">
-            <span className="text-gray-400">Order</span>
-            <span className="text-white">#7804GNZ</span>
-          </div>
-
-          <div className="border border-gray-300/25 rounded-3xl bg-gray-900/50">
-
-            <div className="flex items-center justify-between px-4 pt-3 pb-4 border-b border-b-gray-300/25 ">
-              <div className="flex items-center gap-5">
-                <Image src={FCL} alt="FCL" width={28} height={18} />
-                <span className="text-white">FCL</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <span className="bg-blue-600 p-1.5 rounded-full"></span>
-                <span className="text-white text-xs">In transit</span>
-              </div>
-            </div>
-
-            <div className="px-4 py-10 flex flex-col gap-8 relative">
-              <div className="flex items-center justify-between gap-4">
-                <Image src={Pickup} alt="Pickup" width={28} height={18} />
-
-                <div className="flex items-end justify-between w-full">
-                  <div className="flex flex-col">
-                    <span className="text-gray-100/50 text-[10px]">PICKUP</span>
-                    <span className="text-white">New York</span>
-                    <span className="text-gray-300/50 text-sm">25 Mortada street, Gainalkes..</span>
-                  </div>
-
-                  <div className="flex flex-col items-end justify-end h-full">
-                    <span className="text-gray-300/50 text-xs">01/04/23</span>
-                    <span className="text-white text-sm">10:45</span>
-                  </div>
-                </div>
-              </div>
-
-              <div className="absolute left-7.5 top-5/12">
-                <Image src={Breadcrumb} alt="Breadcrumb" width={2} />
-              </div>
-
-              <div className="flex items-center justify-between gap-4">
-                <div className="w-[28px] flex items-center justify-center">
-                  <Image src={Location} alt="Location" width={13} height={18} />
-                </div>
-
-                <div className="flex items-end justify-between w-full">
-                  <div className="flex flex-col">
-                    <span className="text-gray-100/50 text-[10px]">PICKUP</span>
-                    <span className="text-white">New York</span>
-                    <span className="text-gray-300/50 text-sm">25 Mortada street, Gainalkes..</span>
-                  </div>
-
-                  <div className="flex flex-col items-end justify-end h-full">
-                    <span className="text-gray-300/50 text-xs">01/04/23</span>
-                    <span className="text-white text-sm">10:45</span>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            <div className="pt-5 flex justify-between relative">
-              <button style={{ borderBottomLeftRadius: '40px', borderBottomRightRadius: '50px', borderTopRightRadius: '50px' }} className="bg-bego border-none outline-none px-8 py-4 text-xs font-semibold">Its time for pickup</button>
-              <button style={{ borderBottomLeftRadius: '50px', borderBottomRightRadius: '40px', borderTopLeftRadius: '50px' }} className="bg-bego border-none outline-none px-8 py-4 text-xs font-semibold flex gap-3">
-                Resume
-                <Image src={Eye} alt="Eye" width={21} height={16} />
-              </button>
-            </div>
-          </div>
-        </div>
-      </div>
-
+      }
     </Main >
   );
 }
